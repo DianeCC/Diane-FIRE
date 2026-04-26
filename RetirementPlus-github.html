@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QuantEngine v3.1 - Cashflow & CapGains</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-100 p-4 text-slate-900 font-sans">
+
+    <div class="max-w-full mx-auto bg-white shadow-xl rounded-2xl overflow-hidden border border-slate-200">
+        <div class="p-6 bg-slate-900 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight">QuantEngine <span class="text-blue-400">v3.1</span></h1>
+                <p class="text-slate-400 text-xs uppercase font-bold">Sequence: Brok > Trad > Roth | SS @ 67</p>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="text-right">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Success Rate</div>
+                    <div id="statSuccess" class="text-2xl font-black text-green-400">--%</div>
+                </div>
+                <button id="calcBtn" class="bg-blue-500 hover:bg-blue-600 px-8 py-3 rounded-lg font-bold transition-all transform active:scale-95 shadow-lg">RECALCULATE</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-4 gap-0">
+            <div class="p-6 bg-slate-50 border-r border-slate-200 space-y-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">1. Timeline & Macro</label>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div><span class="text-[9px]">Age</span><input id="age" type="number" value="40" class="w-full p-1 border rounded"></div>
+                        <div><span class="text-[9px]">Retire</span><input id="retireAge" type="number" value="52" class="w-full p-1 border rounded"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-[9px]">
+                        <div>Ret %<input id="growth" type="number" value="7" class="w-full p-1 border rounded"></div>
+                        <div>Inf %<input id="inf" type="number" value="3" class="w-full p-1 border rounded"></div>
+                        <div>Vol %<input id="vol" type="number" value="15" class="w-full p-1 border rounded"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">2. Cashflow</label>
+                    <div class="mb-2"><span class="text-[9px]">Annual Gross Income</span><input id="income" type="number" value="250000" class="w-full p-1 border rounded"></div>
+                    <div><span class="text-[9px]">Annual Spend</span><input id="spend" type="number" value="120000" class="w-full p-1 border rounded"></div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">3. Initial Balances</label>
+                    <div class="space-y-2">
+                        <div><span class="text-[9px]">Brokerage</span><input id="balBro" type="number" value="1000000" class="w-full p-1 border rounded"></div>
+                        <div><span class="text-[9px]">Pre-Tax</span><input id="balTra" type="number" value="200000" class="w-full p-1 border rounded"></div>
+                        <div><span class="text-[9px]">Roth</span><input id="balRot" type="number" value="50000" class="w-full p-1 border rounded"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-2">4. Roth Ladder</label>
+                    <div class="grid grid-cols-3 gap-1">
+                        <div>Start<input id="convStart" type="number" value="53" class="w-full p-1 border rounded"></div>
+                        <div>End<input id="convEnd" type="number" value="65" class="w-full p-1 border rounded"></div>
+                        <div>Amount<input id="convAmt" type="number" value="50000" class="w-full p-1 border rounded"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="xl:col-span-3 p-6 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <canvas id="mainChart" height="180"></canvas>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <canvas id="cfChart" height="180"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto max-h-[450px]">
+                        <table class="w-full text-left border-collapse" id="detailTable">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr class="text-[10px] uppercase text-slate-500 font-bold border-b">
+                                    <th class="p-3">Age</th>
+                                    <th class="p-3 text-right">Total Net</th>
+                                    <th class="p-3 text-right">Cap Gain/Loss</th>
+                                    <th class="p-3 text-right">Inc/SS</th>
+                                    <th class="p-3 text-right">Tax (Roth Conv)</th>
+                                    <th class="p-3 text-right">Spend</th>
+                                    <th class="p-3 text-right">Brokerage</th>
+                                    <th class="p-3 text-right">Pre-Tax</th>
+                                    <th class="p-3 text-right">Roth</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-xs font-mono"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('calcBtn').addEventListener('click', runEngine);
+    runEngine(); // Initial load
+});
+
+let mainChart = null, cfChart = null;
+const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+function boxMuller() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function runEngine() {
+    const i = {
+        age: parseInt(document.getElementById('age').value) || 49,
+        ret: parseInt(document.getElementById('retireAge').value) || 52,
+        inc: parseFloat(document.getElementById('income').value) || 0,
+        bBro: parseFloat(document.getElementById('balBro').value) || 0,
+        bTra: parseFloat(document.getElementById('balTra').value) || 0,
+        bRot: parseFloat(document.getElementById('balRot').value) || 0,
+        cStart: parseInt(document.getElementById('convStart').value) || 0,
+        cEnd: parseInt(document.getElementById('convEnd').value) || 0,
+        cAmt: parseFloat(document.getElementById('convAmt').value) || 0,
+        spend: parseFloat(document.getElementById('spend').value) || 0,
+        growth: (parseFloat(document.getElementById('growth').value) || 7) / 100,
+        inf: (parseFloat(document.getElementById('inf').value) || 3) / 100,
+        vol: (parseFloat(document.getElementById('vol').value) || 15) / 100
+    };
+
+    const iters = 1000;
+    const years = 101 - i.age;
+    let trials = [];
+    let wins = 0;
+
+    for (let t = 0; t < iters; t++) {
+        let b = { bro: i.bBro, tra: i.bTra, rot: i.bRot, spend: i.spend, inc: i.inc };
+        let run = [];
+
+        for (let y = 0; y < years; y++) {
+            let age = i.age + y;
+            let ret = i.growth + (boxMuller() * i.vol);
+            
+            // Inflate Social Security ($48,000 base at current age)
+            let ss = (age >= 67) ? 48000 * Math.pow(1 + i.inf, y) : 0;
+            
+            let tax = 0;
+            let capGain = (b.bro + b.tra + b.rot) * ret;
+            let withdrawal = 0;
+            let earnedIncome = (age < i.ret) ? b.inc : 0;
+            let totalIncome = earnedIncome + ss;
+
+            if (age < i.ret) {
+                // Pre-Retirement Logic
+                tax = b.inc * 0.28;
+                let avail = b.inc - tax;
+                let toTra = Math.min(avail, 35000); avail -= toTra;
+                let toRot = Math.min(avail, 40000); avail -= toRot;
+                let toSpend = Math.min(avail, b.spend); avail -= toSpend;
+                b.bro = (b.bro + Math.max(0, avail)) * (1+ret);
+                b.tra = (b.tra + toTra) * (1+ret);
+                b.rot = (b.rot + toRot) * (1+ret);
+            } else {
+                // Post-Retirement Logic
+                let convTax = 0;
+                if (age >= i.cStart && age <= i.cEnd) {
+                    let amt = Math.min(b.tra, i.cAmt);
+                    b.tra -= amt; b.rot += amt;
+                    convTax = amt * 0.22;
+                }
+                
+                // Calculate how much we need from portfolio vs income
+                let target = b.spend + convTax - ss;
+                
+                if (target > 0) {
+                    withdrawal = target; // Amount pulled from savings
+                    let d1 = Math.min(b.bro, target); b.bro -= d1; target -= d1;
+                    if (target > 0) { 
+                        let d2 = Math.min(b.tra, target); b.tra -= d2; target -= d2; 
+                        convTax += (d2 * 0.22); 
+                    }
+                    if (target > 0) { let d3 = Math.min(b.rot, target); b.rot -= d3; target -= d3; }
+                } else {
+                    // SS covers expenses, excess goes to brokerage
+                    b.bro += Math.abs(target);
+                }
+                
+                tax = convTax;
+                b.bro *= (1+ret); b.tra *= (1+ret); b.rot *= (1+ret);
+            }
+            
+            run.push({ 
+                age, 
+                total: b.bro+b.tra+b.rot, 
+                capGain, 
+                income: totalIncome, 
+                withdrawal,
+                tax, 
+                spend: b.spend, 
+                bro: b.bro, 
+                tra: b.tra, 
+                rot: b.rot 
+            });
+            
+            b.spend *= (1 + i.inf); b.inc *= (1 + i.inf);
+        }
+        if (run[run.length-1].total > 0) wins++;
+        trials.push(run);
+    }
+
+    document.getElementById('statSuccess').innerText = (wins/10).toFixed(1) + '%';
+    
+    // Sort and isolate Median Scenario (500th)
+    trials.sort((a,b) => a[a.length-1].total - b[a.length-1].total);
+    const medianRun = trials[500];
+    const p10Run = trials[100];
+
+    // Main Chart
+    const labels = medianRun.map(m => m.age);
+    if (mainChart) mainChart.destroy();
+    mainChart = new Chart(document.getElementById('mainChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Median Net Worth', data: medianRun.map(m => m.total), borderColor: '#3b82f6', pointRadius: 0 },
+                { label: 'P10 (Risk)', data: p10Run.map(m => m.total), borderColor: '#ef4444', borderDash: [5,5], pointRadius: 0 }
+            ]
+        }
+    });
+
+    // Cashflow Chart (Fidelity Style Stacked Bar + Line)
+    if (cfChart) cfChart.destroy();
+    cfChart = new Chart(document.getElementById('cfChart'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { 
+                    type: 'line', 
+                    label: 'Total Expenses (Spend + Tax)', 
+                    data: medianRun.map(m => m.spend + m.tax), 
+                    borderColor: '#ef4444', // Red line
+                    borderWidth: 2,
+                    fill: false, 
+                    pointRadius: 0,
+                    order: 1
+                },
+                { 
+                    type: 'bar', 
+                    label: 'Lifetime Income (SS + Earned)', 
+                    data: medianRun.map(m => m.income), 
+                    backgroundColor: '#facc15', // Yellow bar
+                    order: 2
+                },
+                { 
+                    type: 'bar', 
+                    label: 'Withdrawals from Savings', 
+                    data: medianRun.map(m => m.withdrawal), 
+                    backgroundColor: '#1e3a8a', // Dark blue bar
+                    order: 3
+                }
+            ]
+        },
+        options: { 
+            responsive: true,
+            scales: { 
+                x: { stacked: true }, 
+                y: { stacked: true } 
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Yearly Cash Flow in Retirement'
+                }
+            }
+        }
+    });
+
+    // Table Rendering
+    const tbody = document.querySelector('#detailTable tbody');
+    tbody.innerHTML = '';
+    medianRun.forEach(r => {
+        const row = document.createElement('tr');
+        if(r.age === i.ret) row.className = "bg-yellow-50 font-bold";
+        
+        const gainColor = r.capGain >= 0 ? 'text-green-600' : 'text-red-500';
+        
+        row.innerHTML = `
+            <td class="p-2">${r.age}</td>
+            <td class="p-2 text-right font-bold text-slate-800">${usd.format(r.total)}</td>
+            <td class="p-2 text-right ${gainColor} font-bold">${usd.format(r.capGain)}</td>
+            <td class="p-2 text-right">${usd.format(r.income)}</td>
+            <td class="p-2 text-right text-red-500">${usd.format(r.tax)}</td>
+            <td class="p-2 text-right text-slate-400">${usd.format(r.spend)}</td>
+            <td class="p-2 text-right">${usd.format(r.bro)}</td>
+            <td class="p-2 text-right">${usd.format(r.tra)}</td>
+            <td class="p-2 text-right">${usd.format(r.rot)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+</script>
+</body>
+</html>
